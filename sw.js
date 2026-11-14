@@ -1,7 +1,7 @@
 // 離線用的 Service Worker：把 App 本身存在手機上，沒網路也能打開。
 // 行程資料的離線由 Firestore 自己的快取處理，這裡不碰。
 // 每次更新程式碼後，把 VERSION 加 1，家人的手機才會換成新版。
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = "ftp-" + VERSION;
 const SHELL = [
   "./",
@@ -22,7 +22,12 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: "reload"：跳過瀏覽器自己的暫存，確保拿到剛更新的檔案
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (e) => {

@@ -21,7 +21,24 @@
   <noscript>這個網頁需要開啟 JavaScript。</noscript>
   <script>
     if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-      navigator.serviceWorker.register("./sw.js").catch(function (e) { console.warn("SW", e); });
+      // 第一次安裝時不需要重新載入；之後有新版本接手時，自動重新載入一次
+      var hadController = !!navigator.serviceWorker.controller;
+      var reloading = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (!hadController || reloading) return;
+        reloading = true;
+        // 正在編輯（有對話框開著）就等關掉再更新，避免打到一半的內容不見
+        (function tryReload() {
+          if (document.querySelector(".overlay")) return setTimeout(tryReload, 1500);
+          location.reload();
+        })();
+      });
+      navigator.serviceWorker.register("./sw.js").then(function (reg) {
+        // App 從背景回到前景時檢查有沒有新版本（手機上常常一直開著不關）
+        document.addEventListener("visibilitychange", function () {
+          if (document.visibilityState === "visible") reg.update().catch(function () {});
+        });
+      }).catch(function (e) { console.warn("SW", e); });
     }
   </script>
 </body>
