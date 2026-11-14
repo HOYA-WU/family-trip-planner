@@ -33,7 +33,12 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deviceName']);
     }
 
-    // 旅行和底下所有資料（卡片、待辦…）
+    // 全家共用設定（家庭成員、送禮對象）
+    match /family/{doc} {
+      allow read, write: if isMember();
+    }
+
+    // 旅行和底下所有資料（卡片、待辦、航班、附件…）
     match /trips/{path=**} {
       allow read, write: if isMember();
     }
