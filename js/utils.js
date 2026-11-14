@@ -83,6 +83,34 @@ export function mapsHref(location) {
   return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(v);
 }
 
+// 圖片壓縮：在瀏覽器裡縮小並轉成 JPEG，回傳 data URL（直接存進資料庫，不用另外的檔案空間）
+export async function compressImage(file, { maxW = 1000, maxH = 700, quality = 0.72, maxBytes = 180_000 } = {}) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const scale = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+    const w = Math.round(img.naturalWidth * scale);
+    const h = Math.round(img.naturalHeight * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+    let q = quality;
+    let out = canvas.toDataURL("image/jpeg", q);
+    while (out.length > maxBytes && q > 0.35) {
+      q -= 0.1;
+      out = canvas.toDataURL("image/jpeg", q);
+    }
+    return out;
+  } catch {
+    throw new Error("無法讀取這張圖片，請換一張 JPG 或 PNG 試試");
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 // 每台裝置自己的偏好（收合狀態等），不會同步給家人
 export const local = {
   get(key, fallback) {

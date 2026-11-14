@@ -3,10 +3,11 @@ import Sortable from "./vendor/sortable.esm.js";
 import { firebaseConfig } from "./config.js";
 import {
   CARD_TYPES, STATUSES, typeOf, daysBetween, shortDay, weekday, todayStr,
-  orderBetween, sortCards, mapsHref, local,
+  orderBetween, sortCards, mapsHref, local, compressImage,
 } from "./utils.js";
 
-const USE_FIREBASE = !!firebaseConfig.projectId;
+// 網址加上 ?demo 可以強制用示範模式（資料只在這台裝置，不影響家人的資料）
+const USE_FIREBASE = !!firebaseConfig.projectId && !new URLSearchParams(location.search).has("demo");
 const { store } = await import(USE_FIREBASE ? "./store-firebase.js" : "./store-demo.js");
 
 // ---------------------------------------------------------------- hooks
@@ -160,10 +161,33 @@ function endOrder(cards, day, exceptId) {
 
 // ---------------------------------------------------------------- 首頁：旅行列表
 
+// 選圖片 → 壓縮 → 回傳 data URL
+function ImagePick({ id, label, onPick, class: cls = "btn small" }) {
+  const [busy, setBusy] = useState(false);
+  const onChange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      onPick(await compressImage(file));
+    } catch (err) {
+      pushToast(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return html`<label class=${cls + (busy ? " busy" : "")} for=${id}>
+    ${busy ? "處理中…" : label}
+    <input id=${id} type="file" accept="image/*" class="visually-hidden" onChange=${onChange} disabled=${busy} />
+  </label>`;
+}
+
 function TripForm({ trip, onClose }) {
   const [title, setTitle] = useState(trip?.title || "");
   const [start, setStart] = useState(trip?.startDate || "");
   const [end, setEnd] = useState(trip?.endDate || "");
+  const [cover, setCover] = useState(trip?.cover || "");
   const [err, setErr] = useState("");
   const submit = async (e) => {
     e.preventDefault();
@@ -171,7 +195,7 @@ function TripForm({ trip, onClose }) {
     if (!start || !end) return setErr("請選出發和回程日期");
     if (end < start) return setErr("回程日期要在出發日期之後");
     if (daysBetween(start, end).length > 90) return setErr("一趟旅行最多 90 天");
-    const data = { title: title.trim(), startDate: start, endDate: end };
+    const data = { title: title.trim(), startDate: start, endDate: end, cover };
     if (trip) {
       store.updateTrip(trip.id, data);
       onClose();
@@ -189,6 +213,17 @@ function TripForm({ trip, onClose }) {
       <div class="row2">
         <label class="field"><span>出發</span><input id="trip-start" type="date" value=${start} onInput=${(e) => setStart(e.target.value)} /></label>
         <label class="field"><span>回程</span><input id="trip-end" type="date" value=${end} onInput=${(e) => setEnd(e.target.value)} /></label>
+      </div>
+      <div class="field"><span>封面圖</span>
+        <div class="cover-edit">
+          ${cover
+            ? html`<img class="cover-preview" src=${cover} alt="封面預覽" />`
+            : html`<div class="cover-preview empty">還沒有封面圖</div>`}
+          <div class="cover-actions">
+            <${ImagePick} id="trip-cover" label=${cover ? "更換圖片" : "選擇圖片"} onPick=${setCover} />
+            ${cover && html`<button type="button" class="btn ghost small danger" onClick=${() => setCover("")}>移除</button>`}
+          </div>
+        </div>
       </div>
       ${trip && html`<p class="hint">改日期不會刪掉卡片；超出新日期範圍的卡片會移到「待排」。</p>`}
       ${err && html`<p class="error">${err}</p>`}
@@ -215,10 +250,16 @@ function Home() {
   const item = (t) => {
     const n = daysBetween(t.startDate, t.endDate).length;
     const now = t.startDate <= today && today <= t.endDate;
-    return html`<a class="trip-item" href=${"#/trip/" + t.id} key=${t.id}>
-      <span class="trip-item-title">${t.title}${now && html` <span class="badge booked">旅行中</span>`}</span>
-      <span class="trip-item-date">${t.startDate} → ${t.endDate}・${n} 天</span>
-    </a>`;
+    return html`<div class="trip-item" key=${t.id}>
+      <a class="trip-item-main" href=${"#/trip/" + t.id}>
+        <span class="trip-item-title">${t.title}${now && html` <span class="badge booked">旅行中</span>`}</span>
+        <span class="trip-item-date">${t.startDate} → ${t.endDate}・${n} 天</span>
+      </a>
+      ${t.cover
+        ? html`<a class="trip-cover" href=${"#/trip/" + t.id} tabindex="-1" aria-hidden="true"><img src=${t.cover} alt="" /></a>`
+        : html`<${ImagePick} id=${"cover-" + t.id} class="trip-cover empty" label="＋ 封面圖"
+            onPick=${(c) => store.updateTrip(t.id, { cover: c })} />`}
+    </div>`;
   };
   return html`<div class="page home">
     <header class="topbar">
