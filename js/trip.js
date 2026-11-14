@@ -7,7 +7,7 @@ import { tripBlocks } from "./model.js";
 import { COUNTRIES, fetchRates, tripCurrencies } from "./money.js";
 import { Board, CardEditor } from "./board.js";
 import { TodayView } from "./today.js";
-import { Blocks, BlockFull, AddBlockMenu } from "./blocks.js";
+import { Blocks, BlockFull, BlockPanel, AddBlockMenu } from "./blocks.js";
 import * as Flights from "./blocks/flights.js";
 import * as Tickets from "./blocks/tickets.js";
 import * as Lists from "./blocks/lists.js";
@@ -122,7 +122,7 @@ export function TripForm({ trip, onClose }) {
 function MorePage({ onOpen, onEditTrip }) {
   const { trip } = useTrip();
   const [view, setView] = useState(null);
-  const blocks = tripBlocks(trip).filter((b) => !b.hidden && !["tickets", "flights", "lists", "expenses"].includes(b.type));
+  const blocks = tripBlocks(trip).filter((b) => !b.hidden);
   if (view === "board") return html`<div class="stack"><button class="btn ghost small back-link" onClick=${() => setView(null)}>‹ 更多</button><${Board} onOpen=${onOpen} /></div>`;
   const b = blocks.find((x) => x.id === view);
   if (b) return html`<div class="mobile-pad"><button class="btn ghost small back-link" onClick=${() => setView(null)}>‹ 更多</button><h2 class="eyebrow">${b.title}</h2><${BlockFull} block=${b} /></div>`;
@@ -134,6 +134,17 @@ function MorePage({ onOpen, onEditTrip }) {
     </ul>
     <${AddBlockMenu} onAdded=${(nb) => setView(nb.id)} />
   </div>`;
+}
+
+// 手機「今天」上方：所有區塊的捷徑，點了直接打開
+function MobileBlockBar() {
+  const { trip } = useTrip();
+  const [open, setOpen] = useState(null);
+  const blocks = tripBlocks(trip).filter((b) => !b.hidden);
+  return html`<nav class="block-bar" aria-label="區塊">
+      ${blocks.map((b) => html`<button key=${b.id} class="block-chip" onClick=${() => setOpen(b)}>${b.title}</button>`)}
+    </nav>
+    ${open && html`<${BlockPanel} block=${open} onClose=${() => setOpen(null)} />`}`;
 }
 
 export function TripPage({ id }) {
@@ -189,7 +200,7 @@ export function TripPage({ id }) {
   return html`<${TripCtx.Provider} value=${ctx}><div class="page trip mobile">
     ${header}
     <main class="mobile-main">
-      ${tab === "today" && html`<${TodayView} onOpen=${setEditing} />`}
+      ${tab === "today" && html`<${MobileBlockBar} /><${TodayView} onOpen=${setEditing} />`}
       ${tab === "tickets" && html`<div class="mobile-pad">
         <h2 class="eyebrow">航班</h2><${Flights.Full} />
         <h2 class="eyebrow">票券</h2><${Tickets.Full} />

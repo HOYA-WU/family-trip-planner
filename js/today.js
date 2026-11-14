@@ -41,8 +41,14 @@ export function TodayView({ onOpen }) {
     setDay(d);
     local.set("day:" + trip.id, d);
   };
+  // 把選到的日期捲到日期列中間（只捲日期列，不動整個頁面）
   useEffect(() => {
-    chipsRef.current?.querySelector(".on")?.scrollIntoView({ inline: "center", block: "nearest" });
+    const row = chipsRef.current;
+    const on = row?.querySelector(".on");
+    if (!row || !on) return;
+    const a = on.getBoundingClientRect();
+    const b = row.getBoundingClientRect();
+    row.scrollLeft = Math.max(0, row.scrollLeft + (a.left - b.left) - (row.clientWidth - a.width) / 2);
   }, [day]);
 
   const setExp = (next) => {
