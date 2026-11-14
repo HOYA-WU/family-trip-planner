@@ -428,5 +428,7 @@ label.btn { position: relative; }
 .members li { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
 .members li > span:first-child { flex: 1; }
 .guest h1 { font-size: 24px; }
+.guest-join { width: min(100%, 420px); display: flex; flex-direction: column; gap: 10px; margin-top: 20px; text-align: left; }
+.guest-join .btn { align-self: stretch; }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }

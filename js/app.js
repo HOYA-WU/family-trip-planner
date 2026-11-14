@@ -66,11 +66,46 @@ function JoinPage({ token, onJoined }) {
   return html`<div class="center">${err ? html`<p class="error">${err}</p>` : html`<p class="muted">加入中…</p>`}</div>`;
 }
 
-function Guest() {
+// 從邀請連結（或直接貼邀請碼）取出邀請碼
+function tokenFrom(text) {
+  const t = (text || "").trim();
+  const m = t.match(/#\/join\/([A-Za-z0-9]+)/);
+  if (m) return m[1];
+  return /^[A-Za-z0-9]{16,}$/.test(t) ? t : "";
+}
+
+// iPhone「加入主畫面」後的 App 和 Safari 是分開的，要在 App 裡再加入一次：貼上邀請連結即可
+function Guest({ onJoined }) {
+  const [text, setText] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    const token = tokenFrom(text);
+    if (!token) return setErr("看起來不是邀請連結，請貼上完整的連結。");
+    setBusy(true);
+    setErr("");
+    try {
+      await store.join(token);
+      onJoined();
+    } catch (e2) {
+      console.error(e2);
+      setErr(navigator.onLine ? "這個邀請連結無效或已停用，請向家人要一個新的。" : "加入需要網路，請連上網路後再試。");
+    }
+    setBusy(false);
+  };
   return html`<div class="center guest">
     <h1>我們家的旅行</h1>
     <p>這是私人的家庭旅遊工具。</p>
     <p class="muted">請用家人傳給你的邀請連結打開。</p>
+    <form class="guest-join" onSubmit=${submit}>
+      <label class="field"><span>如果是從主畫面打開，請在這裡貼上邀請連結</span>
+        <input id="join-link" value=${text} onInput=${(e) => setText(e.target.value)} placeholder="https://…/#/join/…" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      </label>
+      ${err && html`<p class="error">${err}</p>`}
+      <button class="btn primary" disabled=${busy || !text.trim()}>${busy ? "加入中…" : "加入"}</button>
+      <p class="hint">在 LINE 長按邀請連結 → 拷貝，再回到這裡貼上。</p>
+    </form>
   </div>`;
 }
 
@@ -99,7 +134,7 @@ function App() {
   if (phase === "loading") body = html`<div class="center muted">載入中…</div>`;
   else if (phase === "error") body = html`<div class="center"><p class="error">${error}</p></div>`;
   else if (parts[0] === "join" && parts[1] && phase !== "member") body = html`<${JoinPage} token=${parts[1]} onJoined=${check} />`;
-  else if (phase !== "member") body = html`<${Guest} />`;
+  else if (phase !== "member") body = html`<${Guest} onJoined=${check} />`;
   else if (parts[0] === "trip" && parts[1]) body = html`<${TripPage} key=${parts[1]} id=${parts[1]} />`;
   else if (parts[0] === "settings") body = html`<${Settings} />`;
   else {
