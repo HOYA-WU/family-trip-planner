@@ -100,7 +100,7 @@ export function TodayView({ onOpen }) {
           <div class=${`tcard t-${c.type} st-${c.status || "normal"}` + (open ? " open" : "")}>
             <button class="tcard-h" aria-expanded=${open} onClick=${() => toggle(c.id)}>
               <span class="tag">${t.icon} ${t.label}</span><${StatusBadge} status=${c.status} />
-              <span class="tcard-title">${c.title || "（未命名）"}${(c.images || []).length > 0 && html` <span class="muted small">📷</span>`}</span>
+              <span class="tcard-title">${c.title || "（未命名）"}${(c.images || []).length > 0 && html` <span class="muted small">📎</span>`}</span>
               <span class="chev" aria-hidden="true">${open ? "▾" : "▸"}</span>
             </button>
             ${open && html`<${CardDetail} card=${c} onEdit=${() => onOpen(c)} />`}

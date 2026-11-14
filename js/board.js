@@ -29,7 +29,7 @@ function CardChip({ card, onOpen }) {
       onKeyDown=${(e) => e.key === "Enter" && onOpen(card)}>
     <div class="bcard-top"><span class="tag">${t.icon} ${t.label}</span><${StatusBadge} status=${card.status} /></div>
     <div class="bcard-title">${card.title || "（未命名）"}</div>
-    ${(card.time || n > 0) && html`<div class="bcard-time mono">${timeText(card)}${n > 0 && html`<span class="bcard-pics">📷${n}</span>`}</div>`}
+    ${(card.time || n > 0) && html`<div class="bcard-time mono">${timeText(card)}${n > 0 && html`<span class="bcard-pics">📎${n}</span>`}</div>`}
   </div>`;
 }
 
@@ -234,9 +234,9 @@ export function CardEditor({ card, onClose }) {
       <input id="card-location" ...${bind("location")} placeholder="貼 Google Maps 連結，或直接打地址" />
       ${d.location && html`<a class="hint-link" href=${mapsHref(d.location)} target="_blank" rel="noopener">在 Google Maps 開啟 ↗</a>`}
     </label>
-    <div class="field"><span>圖片</span>
+    <div class="field"><span>圖片與附件（訂房確認信、菜單、電子票…）</span>
       <${FileList} ids=${d.images} onRemove=${(fid) => set("images", d.images.filter((x) => x !== fid))} />
-      <div><${FilePick} id="card-images" label="＋ 加圖片" accept="image/*"
+      <div><${FilePick} id="card-images" label="＋ 圖片或 PDF"
         onAdded=${(ids) => { added.current.push(...ids); setD((x) => ({ ...x, images: [...x.images, ...ids] })); setDirty(true); }} /></div>
     </div>
     <div class="field"><span>連結</span>
