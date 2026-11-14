@@ -12,8 +12,9 @@ import * as Lists from "./blocks/lists.js";
 import * as Outfits from "./blocks/outfits.js";
 import * as Expenses from "./blocks/expenses.js";
 import { Links, Note, Files } from "./blocks/misc.js";
+import * as MapBlock from "./blocks/map.js";
 
-export const BLOCK_IMPL = { todo: Todo, flights: Flights, tickets: Tickets, lists: Lists, outfits: Outfits, expenses: Expenses, links: Links, note: Note, files: Files };
+export const BLOCK_IMPL = { todo: Todo, flights: Flights, tickets: Tickets, lists: Lists, outfits: Outfits, expenses: Expenses, links: Links, map: MapBlock, note: Note, files: Files };
 
 export function BlockFull({ block }) {
   const Impl = BLOCK_IMPL[block.type];

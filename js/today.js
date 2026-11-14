@@ -6,6 +6,7 @@ import { FileList } from "./files.js";
 import { DayOutfits } from "./blocks/outfits.js";
 import { blankCard } from "./board.js";
 import { fmtMoney } from "./money.js";
+import { WeatherBadge } from "./weather.js";
 
 function CardDetail({ card, onEdit }) {
   const { expenses } = useTrip();
@@ -24,7 +25,7 @@ function CardDetail({ card, onEdit }) {
 }
 
 export function TodayView({ onOpen }) {
-  const { trip, days, cards, travelers } = useTrip();
+  const { trip, days, cards, travelers, weather } = useTrip();
   const today = todayStr();
   const [day, setDay] = useState(() => {
     if (days.includes(today)) return today;
@@ -85,7 +86,8 @@ export function TodayView({ onOpen }) {
         ${shortDay(d)}${d === today ? " 今天" : ""}</button>`)}
     </div>
     <div class="today-h">
-      <div><b>${day ? `${shortDay(day)}（${weekday(day)}）` : ""}</b><span class="muted"> ${(trip.dayLabels || {})[day] || ""}</span></div>
+      <div><b>${day ? `${shortDay(day)}（${weekday(day)}）` : ""}</b><span class="muted"> ${(trip.dayLabels || {})[day] || ""}</span>
+        ${weather?.[day] && html` <${WeatherBadge} w=${weather[day]} />`}</div>
       ${list.length > 0 && html`<button class="btn ghost small" onClick=${toggleAll}>${allOpen ? "全部收合" : "全部展開"}</button>`}
     </div>
     ${travelers.length > 0 && day && html`<section class="today-outfit">

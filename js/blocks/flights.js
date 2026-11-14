@@ -1,7 +1,8 @@
 // 航班：登機證樣式；可附上機票截圖或電子機票 PDF
 import { html, useState, useRef } from "../vendor/preact-htm.js";
 import { store } from "../store.js";
-import { useTrip, useSub, Panel, ConfirmButton, Notes } from "../ui.js";
+import { useTrip, useSub, Panel, ConfirmButton, Notes, pushToast } from "../ui.js";
+import { askGemini, aiReady, fileForAI, FLIGHT_PROMPT } from "../ai.js";
 import { FilePick, FileList } from "../files.js";
 
 function useFlights() {
@@ -43,10 +44,42 @@ function Pass({ f, onEdit }) {
 }
 
 function FlightEditor({ flight, onClose }) {
-  const { trip } = useTrip();
+  const { trip, family, files } = useTrip();
   const isNew = !flight.id;
   const [d, setD] = useState(() => ({ pnr: "", note: "", files: [], ...flight, segments: (flight.segments?.length ? flight.segments : [blankSeg()]).map((s) => ({ ...s })) }));
   const added = useRef([]);
+  const [reading, setReading] = useState(false);
+  const filesRef = useRef(files);
+  filesRef.current = files;
+  // AI 讀截圖／PDF：每個附件的航段合併起來，填進表單讓人檢查
+  const recognize = async (ids = d.files) => {
+    let list = [];
+    for (let i = 0; i < 20; i++) {
+      list = ids.map((id) => filesRef.current[id]).filter(Boolean);
+      if (list.length === ids.length) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    if (!list.length) return;
+    setReading(true);
+    try {
+      let pnr = "";
+      const notes = [];
+      const segs = [];
+      for (const f of list) {
+        const r = await askGemini(family, { prompt: FLIGHT_PROMPT, file: await fileForAI(trip.id, f) });
+        pnr ||= r.pnr || "";
+        if (r.note) notes.push(r.note);
+        for (const s of r.segments || []) segs.push({ ...blankSeg(), ...Object.fromEntries(Object.entries(s).map(([k, v]) => [k, v == null ? "" : String(v)])) });
+      }
+      if (!segs.length) throw new Error("沒有讀到航班資料，請換一張清楚一點的截圖");
+      segs.sort((a, b) => (a.depart || "").localeCompare(b.depart || ""));
+      setD((x) => ({ ...x, pnr: pnr || x.pnr, note: [x.note, ...notes].filter(Boolean).join("\n"), segments: segs }));
+      pushToast(`讀到 ${segs.length} 段航班，請檢查一下再儲存`);
+    } catch (e) {
+      pushToast(e.message || String(e));
+    }
+    setReading(false);
+  };
   const setSeg = (i, k, v) => setD((x) => ({ ...x, segments: x.segments.map((s, j) => (j === i ? { ...s, [k]: v } : s)) }));
   const cancel = () => {
     added.current.forEach((fid) => store.deleteFile(trip.id, fid));
@@ -74,8 +107,17 @@ function FlightEditor({ flight, onClose }) {
       <button type="submit" class="btn primary">儲存</button>`}>
     <div class="field"><span>機票截圖或電子機票</span>
       <${FileList} ids=${d.files} onRemove=${(fid) => setD((x) => ({ ...x, files: x.files.filter((y) => y !== fid) }))} />
-      <div><${FilePick} id="flight-files" purpose="doc" onAdded=${(ids) => { added.current.push(...ids); setD((x) => ({ ...x, files: [...x.files, ...ids] })); }} /></div>
-      <p class="hint">自動辨識成文字會在第三階段加入，目前請對照截圖填寫下面的欄位。</p>
+      <div class="row-start">
+        <${FilePick} id="flight-files" purpose="doc" onAdded=${(ids) => {
+          added.current.push(...ids);
+          setD((x) => ({ ...x, files: [...x.files, ...ids] }));
+          if (aiReady(family)) recognize(ids);
+        }} />
+        ${aiReady(family) && d.files.length > 0 && html`<button type="button" class="btn small" onClick=${() => recognize()} disabled=${reading}>${reading ? "AI 辨識中…" : "🤖 AI 辨識"}</button>`}
+      </div>
+      <p class="hint">${aiReady(family)
+        ? "上傳後會自動辨識，結果填進下面的欄位，請檢查後再儲存。"
+        : "到「設定 → AI 辨識」填入金鑰後，上傳截圖就能自動填好下面的欄位。"}</p>
     </div>
     <label class="field"><span>訂位代號</span><input id="flight-pnr" value=${d.pnr} onInput=${(e) => setD({ ...d, pnr: e.target.value.toUpperCase() })} placeholder="例如 FAZCX7" /></label>
     ${d.segments.map((s, i) => html`<fieldset class="seg-box" key=${i}>

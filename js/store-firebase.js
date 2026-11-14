@@ -118,6 +118,12 @@ export const store = {
   onSub(tripId, s, cb) {
     return F.onSnapshot(subCol(tripId, s), (snap) => cb(list(snap)), this.onError);
   },
+  async getSub(tripId, s) {
+    return list(await F.getDocs(subCol(tripId, s)));
+  },
+  async getTrips() {
+    return list(await F.getDocs(F.collection(db, "trips")));
+  },
   async addSub(tripId, s, data) {
     const ref = F.doc(subCol(tripId, s));
     this.fire(F.setDoc(ref, data));

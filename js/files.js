@@ -15,8 +15,19 @@ function readDataURL(file) {
   });
 }
 
+// 原始檔案的指紋：同一張照片傳兩次可以認出來
+async function fileHash(file) {
+  try {
+    const buf = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return [...new Uint8Array(buf)].slice(0, 12).map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return "";
+  }
+}
+
 // purpose: "photo"（一般照片）或 "doc"（票券、截圖，要看得清字）
 export async function addFile(tripId, file, extra = {}, purpose = "photo") {
+  extra = { ...extra, hash: await fileHash(file) };
   const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
   if (isPdf) {
     if (file.size > MAX_PDF) throw new Error(`「${file.name}」超過 5MB，請先壓縮再上傳`);

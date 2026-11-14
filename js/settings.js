@@ -4,6 +4,7 @@ import { store } from "./store.js";
 import { newId } from "./utils.js";
 import { useSub, ConfirmButton, copyText, pushToast, LazyInput } from "./ui.js";
 import { recipientLabel } from "./model.js";
+import { askGemini, DEFAULT_MODEL } from "./ai.js";
 
 function People({ family }) {
   const people = family.people || [];
@@ -57,6 +58,34 @@ function Recipients({ family }) {
   </section>`;
 }
 
+function AiSettings({ family }) {
+  const [testing, setTesting] = useState(false);
+  const test = async () => {
+    setTesting(true);
+    try {
+      const r = await askGemini(family, { prompt: '只回傳 JSON：{"ok":true}' });
+      pushToast(r?.ok ? "金鑰可以用 ✓" : "有回應，但格式不對，請再試一次");
+    } catch (e) {
+      pushToast(e.message || String(e));
+    }
+    setTesting(false);
+  };
+  return html`<section class="card-sec">
+    <h2>AI 辨識</h2>
+    <p class="muted">用來辨識機票截圖和收據。使用 Google Gemini 的免費額度，金鑰只有加入的家人讀得到。免費版的內容可能會被 Google 用來改善模型。</p>
+    <label class="field" style="width:100%"><span>Gemini API 金鑰</span>
+      <${LazyInput} id="gemini-key" type="password" autocomplete="off" value=${family.geminiKey || ""} placeholder="AIza…"
+        onSave=${(v) => store.updateFamily({ geminiKey: v.trim() })} /></label>
+    <label class="field" style="width:100%"><span>模型名稱（通常不用改）</span>
+      <${LazyInput} id="gemini-model" value=${family.geminiModel || ""} placeholder=${DEFAULT_MODEL}
+        onSave=${(v) => store.updateFamily({ geminiModel: v.trim() })} /></label>
+    <div class="row-start">
+      <button class="btn" onClick=${test} disabled=${testing || !family.geminiKey}>${testing ? "測試中…" : "測試金鑰"}</button>
+      <a class="btn ghost" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">去申請免費金鑰 ↗</a>
+    </div>
+  </section>`;
+}
+
 function InviteRow({ inv }) {
   const url = location.origin + location.pathname + "#/join/" + inv.id;
   const ref = useRef();
@@ -89,6 +118,7 @@ export function Settings() {
     </section>`}
     ${family && html`<${People} family=${family} />`}
     ${family && html`<${Recipients} family=${family} />`}
+    ${family && html`<${AiSettings} family=${family} />`}
     <section class="card-sec">
       <h2>邀請家人</h2>
       <p class="muted">產生一個連結，用 LINE 傳給家人。每台裝置第一次點開連結就會加入，之後直接打開網址就能用。</p>

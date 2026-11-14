@@ -4,6 +4,7 @@ import { store } from "../store.js";
 import { shortDay, weekday, todayStr, sortCards, local } from "../utils.js";
 import { useTrip, useSub, LazyInput, useWide } from "../ui.js";
 import { FilePick, FileList } from "../files.js";
+import { WeatherBadge } from "../weather.js";
 
 export function useOutfits() {
   const { trip } = useTrip();
@@ -38,7 +39,7 @@ function OutfitCell({ date, person, o, compact }) {
 }
 
 function ByPerson() {
-  const { trip, days, cards, travelers } = useTrip();
+  const { trip, days, cards, travelers, weather } = useTrip();
   const map = useOutfits();
   const [pid, setPid] = useState(() => local.get("of-person", travelers[0]?.id));
   const person = travelers.find((p) => p.id === pid) || travelers[0];
@@ -50,6 +51,7 @@ function ByPerson() {
       ${days.map((d) => html`<li key=${d}>
         <div class="outfit-date"><b class="mono">${shortDay(d)}</b> <span class="muted">週${weekday(d)}</span>
           <span class="muted small">${(trip.dayLabels || {})[d] || ""}</span>
+          ${weather?.[d] && html`<${WeatherBadge} w=${weather[d]} />`}
           <span class="outfit-hint small">${dayHint(cards, d)}</span></div>
         <${OutfitCell} date=${d} person=${person} o=${map[`${d}_${person.id}`]} />
       </li>`)}

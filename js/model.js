@@ -13,6 +13,7 @@ export const BUILTIN_BLOCKS = [
   { type: "outfits", title: "每日穿搭" },
   { type: "expenses", title: "花費" },
   { type: "links", title: "參考連結" },
+  { type: "map", title: "地圖" },
 ];
 export const ADDABLE_BLOCKS = [
   { type: "note", title: "筆記", hint: "自由寫文字，例如小費習慣、插座規格" },

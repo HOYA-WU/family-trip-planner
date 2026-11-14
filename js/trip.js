@@ -5,6 +5,8 @@ import { daysBetween, local, compressImage } from "./utils.js";
 import { useSub, useWide, useTrip, TripCtx, ConfirmButton, pushToast } from "./ui.js";
 import { tripBlocks } from "./model.js";
 import { COUNTRIES, fetchRates, tripCurrencies } from "./money.js";
+import { exportTrip } from "./transfer.js";
+import { useWeather } from "./weather.js";
 import { Board, CardEditor } from "./board.js";
 import { TodayView } from "./today.js";
 import { Blocks, BlockFull, BlockPanel, AddBlockMenu } from "./blocks.js";
@@ -44,6 +46,7 @@ export function TripForm({ trip, onClose }) {
   const [cover, setCover] = useState(trip?.cover || "");
   const [countries, setCountries] = useState(trip?.countries || []);
   const [travelerIds, setTravelerIds] = useState(trip?.travelerIds || null);
+  const [weatherPlace, setWeatherPlace] = useState(trip?.weatherPlace || "");
   const [err, setErr] = useState("");
   const tids = travelerIds || people.map((p) => p.id);
   const toggleT = (id) => setTravelerIds(tids.includes(id) ? tids.filter((x) => x !== id) : [...tids, id]);
@@ -54,7 +57,7 @@ export function TripForm({ trip, onClose }) {
     if (!start || !end) return setErr("請選出發和回程日期");
     if (end < start) return setErr("回程日期要在出發日期之後");
     if (daysBetween(start, end).length > 90) return setErr("一趟旅行最多 90 天");
-    const data = { title: title.trim(), startDate: start, endDate: end, cover, countries, travelerIds: tids };
+    const data = { title: title.trim(), startDate: start, endDate: end, cover, countries, travelerIds: tids, weatherPlace: weatherPlace.trim() };
     // 新的幣別自動抓參考匯率（失敗也沒關係，之後可以在花費區塊再抓或手動填）
     const need = tripCurrencies({ countries }).filter((c) => !trip?.rates?.[c]);
     if (need.length && navigator.onLine) {
@@ -93,6 +96,9 @@ export function TripForm({ trip, onClose }) {
           </select>
         </div>
       </div>
+      <label class="field"><span>天氣預報地點（出發前 16 天內會顯示天氣）</span>
+        <input id="trip-weather" value=${weatherPlace} onInput=${(e) => setWeatherPlace(e.target.value)} placeholder="城市名，例如：Hakuba、墨爾本" />
+        <span class="hint">建議用英文地名（例如 Hakuba）比較找得到。每天在看板上填的地點會先試，找不到就用這裡的城市。</span></label>
       ${people.length > 0 && html`<div class="field"><span>這趟的旅伴（穿搭、清單分人用）</span>
         <div class="chips">${people.map((p) => html`<button type="button" key=${p.id} class=${"chip" + (tids.includes(p.id) ? " on" : "")} onClick=${() => toggleT(p.id)}>${p.name}</button>`)}</div>
       </div>`}
@@ -106,6 +112,10 @@ export function TripForm({ trip, onClose }) {
         </div>
       </div>
       ${trip && html`<p class="hint">改日期不會刪掉卡片；超出新日期範圍的卡片會移到「待排」。</p>`}
+      ${trip && html`<div class="field"><span>備份</span>
+        <div><button type="button" class="btn small" onClick=${async () => { pushToast("匯出中…"); try { await exportTrip(trip); } catch (e) { pushToast("匯出失敗：" + (e.message || e)); } }}>匯出這趟旅行（含附件）</button></div>
+        <p class="hint">存成一個檔案，可以備份，或在首頁「匯入備份」變成一趟新的旅行。</p>
+      </div>`}
       ${err && html`<p class="error">${err}</p>`}
       <div class="dialog-actions">
         ${trip && html`<${ConfirmButton} label="刪除這趟旅行" confirmLabel="確定刪除整趟旅行？"
@@ -167,6 +177,7 @@ export function TripPage({ id }) {
   useEffect(() => {
     (fileList || []).filter((f) => f.kind === "pdf").forEach((f) => store.prefetchFile(id, f));
   }, [fileList]);
+  const weather = useWeather(trip || {}, trip ? daysBetween(trip.startDate, trip.endDate) : []);
 
   if (trip === undefined || cards === undefined) return html`<div class="center muted">載入中…</div>`;
   if (trip === null) return html`<div class="center"><p>找不到這趟旅行，可能已經被刪除。</p><a class="btn" href="#/">回旅行列表</a></div>`;
@@ -175,7 +186,7 @@ export function TripPage({ id }) {
   const people = family?.people || [];
   const travelers = trip.travelerIds ? people.filter((p) => trip.travelerIds.includes(p.id)) : people;
   const files = Object.fromEntries((fileList || []).map((f) => [f.id, f]));
-  const ctx = { trip, days, cards, files, expenses: expenses || [], family, travelers };
+  const ctx = { trip, days, cards, files, expenses: expenses || [], family, travelers, weather };
 
   const header = html`<header class="topbar trip-top">
     <a class="icon-btn back" href="#/" aria-label="回旅行列表">‹</a>

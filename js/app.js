@@ -2,18 +2,112 @@
 import { html, render, useState, useEffect } from "./vendor/preact-htm.js";
 import { store } from "./store.js";
 import { daysBetween, todayStr } from "./utils.js";
-import { useSub, useHash, useOnline, Toasts, Lightbox } from "./ui.js";
+import { useSub, useHash, useOnline, Toasts, Lightbox, pushToast } from "./ui.js";
+import { copyTrip, importTrip, COPY_MODES } from "./transfer.js";
 import { PdfViewer } from "./files.js";
 import { TripPage, TripForm, ImagePick } from "./trip.js";
 import { Settings } from "./settings.js";
+
+function CopyDialog({ trips, onClose }) {
+  const sorted = [...trips].sort((a, b) => (b.startDate || "").localeCompare(a.startDate || ""));
+  const [srcId, setSrcId] = useState(sorted[0]?.id || "");
+  const [mode, setMode] = useState("full");
+  const src = trips.find((t) => t.id === srcId);
+  const [title, setTitle] = useState("");
+  const [start, setStart] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!src) return pushToast("請選要複製的旅行");
+    if (!start) return pushToast("請選新的出發日期");
+    setBusy(true);
+    try {
+      const id = await copyTrip(src, { mode, title: title.trim() || `${src.title}（複製）`, startDate: start });
+      onClose();
+      location.hash = "#/trip/" + id;
+    } catch (err) {
+      pushToast("複製失敗：" + (err.message || err));
+      setBusy(false);
+    }
+  };
+  return html`<div class="overlay" onClick=${(e) => e.target === e.currentTarget && onClose()}>
+    <form class="dialog" onSubmit=${submit}>
+      <h2>複製舊行程</h2>
+      <label class="field"><span>從哪一趟複製</span>
+        <select id="copy-src" value=${srcId} onChange=${(e) => setSrcId(e.target.value)}>
+          ${sorted.map((t) => html`<option value=${t.id}>${t.title}（${t.startDate}）</option>`)}
+        </select></label>
+      <div class="field"><span>複製哪些</span>
+        <div class="radio-list">${COPY_MODES.map((m) => html`<label key=${m.id} class=${"radio" + (mode === m.id ? " on" : "")}>
+          <input type="radio" name="copy-mode" checked=${mode === m.id} onChange=${() => setMode(m.id)} />
+          <span><b>${m.label}</b><span class="muted small">${m.hint}</span></span></label>`)}</div>
+      </div>
+      <label class="field"><span>新旅行名稱</span><input id="copy-title" value=${title} onInput=${(e) => setTitle(e.target.value)} placeholder=${src ? `${src.title}（複製）` : ""} /></label>
+      <label class="field"><span>新的出發日期（天數和原本一樣：${src ? daysBetween(src.startDate, src.endDate).length : 0} 天）</span>
+        <input id="copy-start" type="date" value=${start} onInput=${(e) => setStart(e.target.value)} /></label>
+      <div class="dialog-actions"><span class="spacer"></span>
+        <button type="button" class="btn" onClick=${onClose}>取消</button>
+        <button class="btn primary" disabled=${busy}>${busy ? "複製中…" : "複製"}</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+function ImportButton() {
+  const [busy, setBusy] = useState(false);
+  const onChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    try {
+      const id = await importTrip(JSON.parse(await file.text()));
+      pushToast("已匯入");
+      location.hash = "#/trip/" + id;
+    } catch (err) {
+      pushToast("匯入失敗：" + (err.message || err));
+    }
+    setBusy(false);
+  };
+  return html`<label class="btn ghost small" for="import-file">${busy ? "匯入中…" : "匯入備份"}
+    <input id="import-file" type="file" accept="application/json,.json" class="visually-hidden" onChange=${onChange} disabled=${busy} /></label>`;
+}
+
+// 搜尋行程內容：有打字才去讀所有旅行的卡片
+function useCardIndex(trips, active) {
+  const [index, setIndex] = useState(null);
+  // 清空搜尋框時丟掉索引，下次搜尋重新讀，才會是最新的
+  useEffect(() => {
+    if (!active) setIndex(null);
+  }, [active]);
+  useEffect(() => {
+    if (!active || index || !trips) return;
+    (async () => {
+      const out = [];
+      for (const t of trips) {
+        try {
+          for (const c of await store.getSub(t.id, "cards")) out.push({ trip: t, card: c });
+        } catch {}
+      }
+      setIndex(out);
+    })();
+  }, [active, trips?.length]);
+  return index;
+}
 
 function Home() {
   const trips = useSub((cb) => store.onTrips(cb), []);
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const query = q.trim().toLowerCase();
+  const index = useCardIndex(trips, !!query);
   if (!trips) return html`<div class="center muted">載入中…</div>`;
   const today = todayStr();
-  const shown = trips.filter((t) => !q || (t.title || "").toLowerCase().includes(q.toLowerCase()));
+  const shown = trips.filter((t) => !query || (t.title || "").toLowerCase().includes(query));
+  const hits = query && index
+    ? index.filter(({ card: c }) => [c.title, c.notes, c.location, c.booking].some((s) => (s || "").toLowerCase().includes(query))).slice(0, 30)
+    : [];
   const upcoming = shown.filter((t) => (t.endDate || "") >= today).sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
   const past = shown.filter((t) => (t.endDate || "") < today).sort((a, b) => (b.startDate || "").localeCompare(a.startDate || ""));
   const item = (t) => {
@@ -35,18 +129,32 @@ function Home() {
       <a class="btn ghost" href="#/settings">設定</a>
     </header>
     <div class="home-tools">
-      <input id="trip-search" class="search" type="search" placeholder="搜尋旅行名稱" value=${q} onInput=${(e) => setQ(e.target.value)} />
+      <input id="trip-search" class="search" type="search" placeholder="搜尋旅行或行程內容，例如：企鵝" value=${q} onInput=${(e) => setQ(e.target.value)} />
       <button class="btn primary" onClick=${() => setCreating(true)}>＋ 新旅行</button>
     </div>
+    <div class="home-sub">
+      ${trips.length > 0 && html`<button class="btn ghost small" onClick=${() => setCopying(true)}>複製舊行程</button>`}
+      <${ImportButton} />
+    </div>
+    ${query && html`<section class="trip-group">
+      <h2 class="eyebrow">行程內容</h2>
+      ${!index && html`<p class="muted small">搜尋中…</p>`}
+      ${index && !hits.length && html`<p class="muted small">沒有找到「${q.trim()}」。</p>`}
+      ${hits.map(({ trip: t, card: c }) => html`<a class="hit" key=${t.id + c.id} href=${"#/trip/" + t.id}>
+        <b>${c.title || "（未命名）"}</b>
+        <span class="muted small">${t.title}${c.day ? `・${c.day.slice(5).replace("-", "/")}` : "・待排"}</span>
+      </a>`)}
+    </section>`}
     <section class="trip-group">
       <h2 class="eyebrow">即將出發與進行中</h2>
-      ${upcoming.length ? upcoming.map(item) : html`<p class="muted">還沒有排定的旅行。按「＋ 新旅行」開始規劃。</p>`}
+      ${upcoming.length ? upcoming.map(item) : html`<p class="muted">${query ? "沒有符合的旅行名稱。" : "還沒有排定的旅行。按「＋ 新旅行」開始規劃。"}</p>`}
     </section>
     ${past.length > 0 && html`<section class="trip-group">
       <h2 class="eyebrow">過去的旅行</h2>
       ${past.map(item)}
     </section>`}
     ${creating && html`<${TripForm} onClose=${() => setCreating(false)} />`}
+    ${copying && html`<${CopyDialog} trips=${trips} onClose=${() => setCopying(false)} />`}
   </div>`;
 }
 

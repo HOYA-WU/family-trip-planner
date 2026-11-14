@@ -148,6 +148,12 @@ export const store = {
 
   // 旅行底下的各種資料（卡片、待辦、航班、清單…）共用這一組
   onSub: (tripId, s, cb) => watch(() => clone(Object.values(subOf(tripId, s))), cb),
+  async getSub(tripId, s) {
+    return clone(Object.values(subOf(tripId, s)));
+  },
+  async getTrips() {
+    return clone(Object.values(db.trips));
+  },
   async addSub(tripId, s, data) {
     const id = newId();
     subOf(tripId, s)[id] = { id, ...clone(data) };
