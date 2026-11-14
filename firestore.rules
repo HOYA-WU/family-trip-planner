@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// 只有點過有效邀請連結的裝置（members 名單裡的人）才能讀寫資料。
+// 這份規則要貼到 Firebase 主控台 → Firestore Database → 規則。
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isMember() {
+      return signedIn() && exists(/databases/$(database)/documents/members/$(request.auth.uid));
+    }
+
+    // 邀請碼：只能用完整的邀請碼讀單一筆（猜不到也列不出來）；成員可以管理
+    match /invites/{token} {
+      allow get: if signedIn();
+      allow list, create, update, delete: if isMember();
+    }
+
+    // 裝置名單
+    match /members/{uid} {
+      // 加入：只能加自己，而且要帶一個存在且啟用中的邀請碼
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.token is string
+        && exists(/databases/$(database)/documents/invites/$(request.resource.data.token))
+        && get(/databases/$(database)/documents/invites/$(request.resource.data.token)).data.active == true;
+      allow get: if signedIn() && (request.auth.uid == uid || isMember());
+      allow list, delete: if isMember();
+      // 只能改自己的裝置名稱
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deviceName']);
+    }
+
+    // 旅行和底下所有資料（卡片、待辦…）
+    match /trips/{path=**} {
+      allow read, write: if isMember();
+    }
+  }
+}
