@@ -120,7 +120,9 @@ export function Settings() {
     </section>
     <section class="card-sec">
       <h2>加到主畫面</h2>
-      <p class="muted">iPhone：用 Safari 打開，按分享 → 加入主畫面。Android：用 Chrome 打開，按右上角選單 → 安裝應用程式。加到主畫面後，沒網路也能打開看過的行程。</p>
+      <p class="muted">iPhone：用 Safari 打開，按分享 → 加入主畫面。從主畫面打開後，在 LINE 長按邀請連結 → 拷貝，貼到 App 的歡迎畫面再加入一次（iPhone 的主畫面 App 和 Safari 是分開的）。</p>
+      <p class="muted">Android：用 Chrome 打開，按右上角選單 → 安裝應用程式。</p>
+      <p class="muted">加到主畫面後，沒網路也能打開看過的行程。</p>
     </section>
   </div>`;
 }
