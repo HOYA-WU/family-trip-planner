@@ -1,32 +1,67 @@
 // AI 辨識：Google Gemini（免費額度）。金鑰存在全家共用設定裡，只有加入的裝置讀得到。
 import { store } from "./store.js";
+import { local } from "./utils.js";
 
-export const DEFAULT_MODEL = "gemini-2.5-flash";
+// Google 會陸續淘汰舊模型；依序試這些，用成功的那個（記在這台裝置上）
+export const DEFAULT_MODEL = "gemini-3.5-flash";
+const FALLBACKS = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.8-flash"];
 export const aiReady = (family) => !!family?.geminiKey;
+
+async function callModel(key, model, parts) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 45000);
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      signal: ctl.signal,
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }),
+    });
+    return { res, json: await res.json().catch(() => ({})) };
+  } catch (e) {
+    return { res: { ok: false, status: 0 }, json: { error: { message: e.name === "AbortError" ? "等太久沒有回應" : e.message } } };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export async function askGemini(family, { prompt, file }) {
   if (!family?.geminiKey) throw new Error("還沒設定 AI 金鑰，請到「設定 → AI 辨識」填寫");
   if (!navigator.onLine) throw new Error("AI 辨識需要網路");
-  const model = (family.geminiModel || DEFAULT_MODEL).trim();
+  const key = family.geminiKey.trim();
   const parts = [];
   if (file) {
     const [head, b64] = file.data.split(",");
     parts.push({ inline_data: { mime_type: head.match(/data:([^;]+)/)?.[1] || "image/jpeg", data: b64 } });
   }
   parts.push({ text: prompt });
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": family.geminiKey.trim() },
-    body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: "application/json", temperature: 0 } }),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const msg = json.error?.message || res.statusText;
-    if (res.status === 400 && /API key/i.test(msg)) throw new Error("AI 金鑰不正確，請到設定重新貼上");
-    if (res.status === 404) throw new Error(`找不到模型「${model}」，請到設定換一個模型名稱`);
-    if (res.status === 429) throw new Error("今天的免費額度用完了，明天再試，或先手動輸入");
-    throw new Error(msg);
+
+  const queue = [...new Set([family.geminiModel, local.get("ai-model", ""), ...FALLBACKS].filter(Boolean).map((m) => m.trim()))];
+  const tried = new Set();
+  let json;
+  let lastErr = "";
+  while (queue.length) {
+    const model = queue.shift();
+    if (tried.has(model)) continue;
+    tried.add(model);
+    const r = await callModel(key, model, parts);
+    if (r.res.ok) {
+      local.set("ai-model", model);
+      json = r.json;
+      break;
+    }
+    const msg = r.json.error?.message || r.res.statusText || "";
+    if (r.res.status === 400 && /API key/i.test(msg)) throw new Error("AI 金鑰不正確，請到設定重新貼上");
+    if (r.res.status === 403) throw new Error("這個金鑰沒有權限使用 Gemini，請重新申請一組");
+    // 模型被淘汰時，Google 常會在訊息裡建議新模型，優先試它
+    const suggested = msg.match(/models\/([\w.\-]+)/g)?.map((s) => s.replace("models/", "")).filter((m) => m !== model);
+    if (suggested?.length) queue.unshift(...suggested);
+    lastErr = r.res.status === 429 ? "今天的免費額度用完了，明天再試，或先手動輸入"
+      : r.res.status === 503 ? "AI 服務暫時太忙，請稍後再試"
+      : msg;
+    // 其他錯誤（找不到模型、太忙、額度、逾時）就換下一個模型試
   }
+  if (!json) throw new Error(lastErr || "AI 辨識失敗");
   const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
   try {
     return JSON.parse(text.replace(/^```json\s*|\s*```$/g, ""));
