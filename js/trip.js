@@ -188,7 +188,8 @@ export function TripPage({ id }) {
   const files = Object.fromEntries((fileList || []).map((f) => [f.id, f]));
   const ctx = { trip, days, cards, files, expenses: expenses || [], family, travelers, weather };
 
-  const header = html`<header class="topbar trip-top">
+  const banner = trip.cover && html`<div class="trip-banner" style=${{ backgroundImage: `url(${trip.cover})` }} role="img" aria-label="封面圖"></div>`;
+  const header = html`${banner}<header class="topbar trip-top">
     <a class="icon-btn back" href="#/" aria-label="回旅行列表">‹</a>
     <div class="trip-title">
       <h1>${trip.title}</h1>

@@ -77,6 +77,8 @@ p { margin: 0; }
 
 /* page */
 .page { max-width: 1400px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-right)) 40px max(16px, env(safe-area-inset-left)); }
+.trip-banner { height: 210px; margin: 12px 0 0; border-radius: 14px; background: var(--sunk) center / cover no-repeat; }
+.trip.mobile .trip-banner { height: 120px; margin: 0 calc(-1 * max(16px, env(safe-area-inset-right))) 0 calc(-1 * max(16px, env(safe-area-inset-left))); border-radius: 0; }
 .topbar { display: flex; align-items: center; gap: 10px; padding: 16px 0 12px; }
 .topbar h1 { font-size: 22px; font-weight: 800; flex: 1; min-width: 0; }
 .trip-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
