@@ -374,7 +374,11 @@ label.btn { position: relative; }
 .todo-list li:last-child { border-bottom: 0; }
 .todo-list label { display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; min-width: 0; padding: 4px 0; }
 .todo-list input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
-.todo-list li.done span { color: var(--muted); text-decoration: line-through; }
+.todo-list li.done span, .todo-list li.done .todo-text { color: var(--muted); text-decoration: line-through; }
+.todo-edit { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 4px 0; }
+.todo-text { flex: 1; min-width: 0; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 5px 6px; margin-left: -6px; font: inherit; color: inherit; }
+.todo-text:hover { border-color: var(--line); }
+.todo-text:focus { border-color: var(--accent); background: var(--surface); outline: none; text-decoration: none; }
 .todo-list .icon-btn { opacity: .5; font-size: 18px; }
 .todo-list li:hover .icon-btn { opacity: 1; }
 .todo-add { margin-top: 8px; }

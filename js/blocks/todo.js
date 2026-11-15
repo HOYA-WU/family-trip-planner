@@ -1,6 +1,6 @@
 import { html, useState } from "../vendor/preact-htm.js";
 import { store } from "../store.js";
-import { useTrip, useSub } from "../ui.js";
+import { useTrip, useSub, LazyInput } from "../ui.js";
 
 function useTodos() {
   const { trip } = useTrip();
@@ -8,11 +8,20 @@ function useTodos() {
   return [...todos].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
-function Row({ t }) {
+// editable：完整畫面裡點文字就能直接改（小卡上維持點文字＝打勾）
+function Row({ t, editable = false }) {
   const { trip } = useTrip();
+  const toggle = (e) => store.updateSub(trip.id, "todos", t.id, { done: e.target.checked });
+  const rename = (v) => v.trim() && v.trim() !== t.text && store.updateSub(trip.id, "todos", t.id, { text: v.trim() });
   return html`<li class=${t.done ? "done" : ""}>
-    <label><input type="checkbox" checked=${t.done} onChange=${(e) => store.updateSub(trip.id, "todos", t.id, { done: e.target.checked })} />
-      <span>${t.text}</span></label>
+    ${editable
+      ? html`<div class="todo-edit">
+          <input type="checkbox" checked=${t.done} onChange=${toggle} aria-label=${"完成 " + t.text} />
+          <${LazyInput} id=${"todo-" + t.id} class="todo-text" value=${t.text} onSave=${rename} aria-label="待辦內容"
+            onKeyDown=${(e) => { if (e.key === "Enter" && !e.isComposing) { rename(e.target.value); e.target.blur(); } }} />
+        </div>`
+      : html`<label><input type="checkbox" checked=${t.done} onChange=${toggle} />
+          <span>${t.text}</span></label>`}
     <button class="icon-btn" title="刪除" aria-label=${"刪除 " + t.text} onClick=${() => store.deleteSub(trip.id, "todos", t.id)}>×</button>
   </li>`;
 }
@@ -30,7 +39,7 @@ export function Full() {
     setText("");
   };
   return html`<div class="todo">
-    <ul class="todo-list">${list.map((t) => html`<${Row} key=${t.id} t=${t} />`)}</ul>
+    <ul class="todo-list">${list.map((t) => html`<${Row} key=${t.id} t=${t} editable />`)}</ul>
     <form class="todo-add" onSubmit=${add}>
       <input id="todo-add" value=${text} onInput=${(e) => setText(e.target.value)} placeholder="新增待辦，按 Enter" />
     </form>
