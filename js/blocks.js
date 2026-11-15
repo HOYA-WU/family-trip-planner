@@ -140,7 +140,7 @@ export function Blocks() {
             <button class="block-title" onClick=${() => setOpen(b)}>${b.title}</button>
             <${BlockMenu} block=${b} blocks=${blocks} />
           </header>
-          <div class="block-body">${Impl && html`<${Impl.Summary} block=${b} />`}</div>
+          <div class="block-body">${Impl && html`<${Impl.Summary} block=${b} onOpen=${() => setOpen(b)} />`}</div>
           <button class="block-more" onClick=${() => setOpen(b)}>打開 →</button>
         </section>`;
       })}

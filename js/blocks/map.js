@@ -1,7 +1,7 @@
 // 地圖：嵌入 Google 我的地圖（地圖本身還是在 Google 那邊編輯）
 import { html } from "../vendor/preact-htm.js";
 import { store } from "../store.js";
-import { useTrip, LazyInput } from "../ui.js";
+import { useTrip, useOnline, LazyInput } from "../ui.js";
 
 export function myMapsId(url) {
   try {
@@ -31,12 +31,17 @@ export function Full() {
   </div>`;
 }
 
-export function Summary() {
+export function Summary({ onOpen }) {
   const { trip } = useTrip();
+  const online = useOnline();
   const mid = myMapsId(trip.mapUrl || "");
   if (!mid) return html`<p class="muted small">還沒有設定地圖。打開後貼上 Google 我的地圖連結。</p>`;
   return html`<div class="sum">
-    <div class="map-ph">🗺 Google 我的地圖</div>
+    ${online
+      ? html`<button class="map-mini" onClick=${onOpen} aria-label="打開地圖">
+          <iframe src=${`https://www.google.com/maps/d/embed?mid=${encodeURIComponent(mid)}&hl=zh-TW`} title="地圖預覽" loading="lazy" tabindex="-1"></iframe>
+        </button>`
+      : html`<div class="map-ph">🗺 沒網路時無法顯示地圖</div>`}
     <a class="btn small" href=${`https://www.google.com/maps/d/viewer?mid=${encodeURIComponent(mid)}`} target="_blank" rel="noopener" onClick=${(e) => e.stopPropagation()}>在 Google 地圖開啟</a>
   </div>`;
 }
