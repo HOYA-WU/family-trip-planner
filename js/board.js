@@ -4,7 +4,7 @@ import Sortable from "./vendor/sortable.esm.js";
 import { store } from "./store.js";
 import { CARD_TYPES, STATUSES, typeOf, shortDay, weekday, todayStr, orderBetween, sortCards, mapsHref, local } from "./utils.js";
 import { useTrip, ConfirmButton, StatusBadge, Panel } from "./ui.js";
-import { FilePick, FileList } from "./files.js";
+import { FilePick, FileList, UrlOrPaste } from "./files.js";
 import { tripCurrencies, mainCurrency, curLabel } from "./money.js";
 
 export const blankCard = (day, order) => ({
@@ -202,6 +202,7 @@ export function CardEditor({ card, onClose }) {
     (card.images || []).forEach((fid) => store.deleteFile(trip.id, fid));
     onClose();
   };
+  const addImages = (ids) => { added.current.push(...ids); setD((x) => ({ ...x, images: [...x.images, ...ids] })); setDirty(true); };
   const setLink = (i, k, v) => set("links", d.links.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
 
   return html`<${Panel} title=${isNew ? "新增卡片" : "編輯卡片"} onClose=${cancel} onSubmit=${save} guard=${dirty}
@@ -236,8 +237,11 @@ export function CardEditor({ card, onClose }) {
     </label>
     <div class="field"><span>圖片與附件（訂房確認信、菜單、電子票…）</span>
       <${FileList} ids=${d.images} onRemove=${(fid) => set("images", d.images.filter((x) => x !== fid))} />
-      <div><${FilePick} id="card-images" label="＋ 圖片或 PDF"
-        onAdded=${(ids) => { added.current.push(...ids); setD((x) => ({ ...x, images: [...x.images, ...ids] })); setDirty(true); }} /></div>
+      <div class="row-start">
+        <${FilePick} id="card-images" label="＋ 圖片或 PDF" onAdded=${addImages} />
+        <${UrlOrPaste} id="card-image-url" onAdded=${addImages}
+          onLink=${(url) => { setD((x) => ({ ...x, links: [...x.links, { label: "", url }] })); setDirty(true); }} />
+      </div>
     </div>
     <div class="field"><span>連結</span>
       ${d.links.map((l, i) => html`<div class="link-row" key=${i}>

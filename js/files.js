@@ -68,6 +68,73 @@ export function FilePick({ id, label = "＋ 圖片或 PDF", accept = "image/*,ap
   </label>`;
 }
 
+// 從網址抓檔案：很多網站不允許別的網頁直接下載，抓不到就回傳 null
+async function fetchAsFile(url) {
+  try {
+    const res = await fetch(url, { mode: "cors", credentials: "omit" });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const isPdf = blob.type === "application/pdf" || /\.pdf($|[?#])/i.test(url);
+    if (!isPdf && !blob.type.startsWith("image/")) return null;
+    const name = decodeURIComponent(new URL(url).pathname.split("/").pop() || "") || (isPdf ? "file.pdf" : "image.jpg");
+    return new File([blob], name, { type: isPdf ? "application/pdf" : blob.type });
+  } catch {
+    return null;
+  }
+}
+
+// 「從網址或貼上」：貼圖片網址按加入；或在框裡直接貼上複製的圖片
+// 網站不給下載時，改存成卡片的連結（onLink）
+export function UrlOrPaste({ id, purpose = "photo", extra, onAdded, onLink }) {
+  const { trip } = useTrip();
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const addFiles = async (files) => {
+    setBusy(true);
+    const ids = [];
+    for (const f of files) {
+      try {
+        ids.push(await addFile(trip.id, f, extra, purpose));
+      } catch (err) {
+        pushToast(err.message || String(err));
+      }
+    }
+    setBusy(false);
+    if (ids.length) {
+      onAdded && onAdded(ids);
+      setUrl("");
+      setOpen(false);
+    }
+  };
+  const onPaste = (e) => {
+    const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith("image/") || f.type === "application/pdf");
+    if (!files.length) return;
+    e.preventDefault();
+    addFiles(files);
+  };
+  const submit = async () => {
+    const u = url.trim();
+    if (!/^https?:\/\//i.test(u)) return pushToast("請貼上 http 開頭的網址");
+    setBusy(true);
+    const f = await fetchAsFile(u);
+    setBusy(false);
+    if (f) return addFiles([f]);
+    onLink && onLink(u);
+    pushToast("這個網站不讓 App 直接下載，已經存成連結。想存圖片：在圖片上按右鍵（手機長按）拷貝，再貼到這個框");
+    setUrl("");
+    setOpen(false);
+  };
+  if (!open) return html`<button type="button" class="btn ghost small" onClick=${() => setOpen(true)}>🔗 從網址或貼上</button>`;
+  return html`<div class="url-add">
+    <input id=${id} value=${url} autofocus placeholder="貼上圖片／PDF 網址，或貼上拷貝的圖片" disabled=${busy}
+      onInput=${(e) => setUrl(e.target.value)} onPaste=${onPaste}
+      onKeyDown=${(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); submit(); } if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }} />
+    <button type="button" class="btn small" onClick=${submit} disabled=${busy || !url.trim()}>${busy ? "處理中…" : "加入"}</button>
+    <button type="button" class="icon-btn" aria-label="取消" onClick=${() => setOpen(false)}>×</button>
+  </div>`;
+}
+
 function dataToBlobUrl(data) {
   const [head, b64] = data.split(",");
   const mime = head.match(/data:([^;]+)/)?.[1] || "application/octet-stream";
