@@ -69,20 +69,64 @@ export function TodayView({ onOpen }) {
     setExp(n);
   };
   const idx = days.indexOf(day);
-  const onTouchStart = (e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY });
-  const onTouchEnd = (e) => {
-    if (!touch.current) return;
-    const dx = e.changedTouches[0].clientX - touch.current.x;
-    const dy = e.changedTouches[0].clientY - touch.current.y;
+
+  // 左右滑換天：時間軸跟著手指走，放開後滑出去、新的一天從另一邊滑進來
+  const tl = useRef();
+  const calm = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  // 先套用起點位置，再開始動畫回到原位（不用 requestAnimationFrame，背景分頁也不會卡住）
+  const settle = () => setTimeout(() => { void tl.current?.offsetWidth; move(0, 220); }, 30);
+  const move = (x, ms = 0, fade = 0) => {
+    const el = tl.current;
+    if (!el) return;
+    el.style.transition = ms ? `transform ${ms}ms cubic-bezier(.2,.7,.3,1), opacity ${ms}ms` : "none";
+    el.style.transform = x ? `translateX(${x}px)` : "";
+    el.style.opacity = fade ? String(1 - fade) : "";
+  };
+  // 換到某一天；dir = 1 往後、-1 往前，新內容從那一邊進來
+  const go = (d, dir = Math.sign(days.indexOf(d) - idx)) => {
+    if (d === day) return;
+    const el = tl.current;
+    if (el && dir && !calm()) move(dir * el.offsetWidth * 0.35, 0, 0.6);
+    pick(d);
+    if (el && dir && !calm()) settle();
+  };
+  const onTouchStart = (e) => {
+    if (e.touches.length > 1) return (touch.current = null);
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), lock: null, dx: 0 };
+  };
+  const onTouchMove = (e) => {
+    const s = touch.current;
+    if (!s) return;
+    const dx = e.touches[0].clientX - s.x;
+    const dy = e.touches[0].clientY - s.y;
+    if (!s.lock && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) s.lock = Math.abs(dx) > Math.abs(dy) * 1.2 ? "x" : "y";
+    if (s.lock !== "x") return;
+    s.dx = dx;
+    const edge = (dx > 0 && idx <= 0) || (dx < 0 && idx >= days.length - 1);
+    if (!calm()) move(edge ? dx / 4 : dx);
+  };
+  const onTouchEnd = () => {
+    const s = touch.current;
     touch.current = null;
-    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx)) return;
-    if (dx < 0 && idx < days.length - 1) pick(days[idx + 1]);
-    if (dx > 0 && idx > 0) pick(days[idx - 1]);
+    if (!s || s.lock !== "x") return;
+    const el = tl.current;
+    const w = el?.offsetWidth || 300;
+    const dir = s.dx < 0 ? 1 : -1;
+    const next = days[idx + dir];
+    const fast = Math.abs(s.dx) > 40 && Math.abs(s.dx) / (Date.now() - s.t) > 0.5;
+    if (!next || !(Math.abs(s.dx) > w * 0.25 || fast)) return move(0, 200);
+    if (calm()) return pick(next);
+    move(-dir * w, 160, 0.3);
+    setTimeout(() => {
+      move(dir * w, 0, 0.3);
+      pick(next);
+      settle();
+    }, 160);
   };
 
   return html`<div class="today">
     <div class="day-chips" ref=${chipsRef}>
-      ${days.map((d) => html`<button key=${d} class=${"chip" + (d === day ? " on" : "")} onClick=${() => pick(d)}>
+      ${days.map((d) => html`<button key=${d} class=${"chip" + (d === day ? " on" : "")} onClick=${() => go(d)}>
         ${shortDay(d)}${d === today ? " 今天" : ""}</button>`)}
     </div>
     <div class="today-h">
@@ -99,7 +143,7 @@ export function TodayView({ onOpen }) {
       <button class=${"chip" + (filter === "all" ? " on" : "")} onClick=${() => setFilter("all")}>全部</button>
       ${CARD_TYPES.map((t) => html`<button key=${t.id} class=${"chip" + (filter === t.id ? " on" : "")} onClick=${() => setFilter(t.id)}>${t.label}</button>`)}
     </div>
-    <ol class="timeline" onTouchStart=${onTouchStart} onTouchEnd=${onTouchEnd}>
+    <ol class="timeline" ref=${tl} onTouchStart=${onTouchStart} onTouchMove=${onTouchMove} onTouchEnd=${onTouchEnd} onTouchCancel=${onTouchEnd}>
       ${list.map((c) => {
         const open = expanded.has(c.id);
         const t = typeOf(c.type);
