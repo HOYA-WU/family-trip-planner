@@ -90,6 +90,7 @@ export function UrlOrPaste({ id, purpose = "photo", extra, onAdded, onLink }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
+  const [hint, setHint] = useState(false);
   const addFiles = async (files) => {
     setBusy(true);
     const ids = [];
@@ -104,6 +105,7 @@ export function UrlOrPaste({ id, purpose = "photo", extra, onAdded, onLink }) {
     if (ids.length) {
       onAdded && onAdded(ids);
       setUrl("");
+      setHint(false);
       setOpen(false);
     }
   };
@@ -121,17 +123,17 @@ export function UrlOrPaste({ id, purpose = "photo", extra, onAdded, onLink }) {
     setBusy(false);
     if (f) return addFiles([f]);
     onLink && onLink(u);
-    pushToast("這個網站不讓 App 直接下載，已經存成連結。想存圖片：在圖片上按右鍵（手機長按）拷貝，再貼到這個框");
+    pushToast("這個網站不讓 App 直接下載，已經存成連結。想存圖片：在圖片上按右鍵（手機長按）拷貝圖片，再貼到下面的框");
     setUrl("");
-    setOpen(false);
+    setHint(true);
   };
   if (!open) return html`<button type="button" class="btn ghost small" onClick=${() => setOpen(true)}>🔗 從網址或貼上</button>`;
   return html`<div class="url-add">
-    <input id=${id} value=${url} autofocus placeholder="貼上圖片／PDF 網址，或貼上拷貝的圖片" disabled=${busy}
+    <input id=${id} value=${url} autofocus placeholder=${hint ? "在這裡貼上拷貝的圖片" : "貼上圖片／PDF 網址，或貼上拷貝的圖片"} disabled=${busy}
       onInput=${(e) => setUrl(e.target.value)} onPaste=${onPaste}
       onKeyDown=${(e) => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); submit(); } if (e.key === "Escape") { e.stopPropagation(); setOpen(false); } }} />
     <button type="button" class="btn small" onClick=${submit} disabled=${busy || !url.trim()}>${busy ? "處理中…" : "加入"}</button>
-    <button type="button" class="icon-btn" aria-label="取消" onClick=${() => setOpen(false)}>×</button>
+    <button type="button" class="icon-btn" aria-label="取消" onClick=${() => { setOpen(false); setHint(false); }}>×</button>
   </div>`;
 }
 
