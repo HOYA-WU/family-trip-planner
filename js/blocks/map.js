@@ -42,6 +42,5 @@ export function Summary({ onOpen }) {
           <iframe src=${`https://www.google.com/maps/d/embed?mid=${encodeURIComponent(mid)}&hl=zh-TW`} title="地圖預覽" loading="lazy" tabindex="-1"></iframe>
         </button>`
       : html`<div class="map-ph">🗺 沒網路時無法顯示地圖</div>`}
-    <a class="btn small" href=${`https://www.google.com/maps/d/viewer?mid=${encodeURIComponent(mid)}`} target="_blank" rel="noopener" onClick=${(e) => e.stopPropagation()}>在 Google 地圖開啟</a>
   </div>`;
 }
