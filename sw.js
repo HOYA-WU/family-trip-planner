@@ -1,7 +1,7 @@
 // 離線用的 Service Worker：把 App 本身存在手機上，沒網路也能打開。
 // 行程資料的離線由 Firestore 自己的快取處理，這裡不碰。
 // 每次更新程式碼後，把 VERSION 加 1，家人的手機才會換成新版。
-const VERSION = "v17";
+const VERSION = "v18";
 const CACHE = "ftp-" + VERSION;
 const SHELL = [
   "./",

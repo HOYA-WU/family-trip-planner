@@ -80,14 +80,25 @@ export async function importTrip(json) {
     if (data) fileMap[oldId] = await store.putFile(id, meta, data);
   }
   const mapFiles = (xs) => (xs || []).map((x) => fileMap[x]).filter(Boolean);
+  // 從 Notion 轉來的檔案用「@名字」代表家人，匯入時換成這個家的成員
+  const fam = await new Promise((res) => {
+    const off = store.onFamily((f) => { res(f); setTimeout(() => off && off()); });
+  });
+  const who = (v) => typeof v === "string" && v.startsWith("@")
+    ? (fam?.people || []).find((p) => p.name.toLowerCase() === v.slice(1).toLowerCase())?.id || "shared"
+    : v;
 
   const listMap = {};
   for (const l of subs.lists || []) listMap[l.id] = await store.addSub(id, "lists", strip(l));
-  for (const it of subs.listItems || []) if (listMap[it.listId]) await store.addSub(id, "listItems", { ...strip(it), listId: listMap[it.listId] });
+  for (const it of subs.listItems || []) if (listMap[it.listId]) await store.addSub(id, "listItems", { ...strip(it), listId: listMap[it.listId], ...(it.owner ? { owner: who(it.owner) } : {}) });
   const cardMap = {};
   for (const c of subs.cards || []) cardMap[c.id] = await store.addSub(id, "cards", { ...strip(c), images: mapFiles(c.images) });
   for (const s of ["flights", "tickets"]) for (const x of subs[s] || []) await store.addSub(id, s, { ...strip(x), files: mapFiles(x.files) });
-  for (const o of subs.outfits || []) await store.setSub(id, "outfits", o.id, { ...strip(o), imageId: fileMap[o.imageId] || "" });
+  for (const o of subs.outfits || []) {
+    const personId = who(o.personId);
+    if (personId === "shared") continue;
+    await store.setSub(id, "outfits", `${o.date}_${personId}`, { ...strip(o), personId, imageId: fileMap[o.imageId] || "" });
+  }
   for (const x of subs.expenses || []) {
     const data = { ...strip(x), receiptId: fileMap[x.receiptId] || "" };
     if (x.cardId && cardMap[x.cardId]) await store.setSub(id, "expenses", "c_" + cardMap[x.cardId], { ...data, cardId: cardMap[x.cardId] });
