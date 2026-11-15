@@ -16,7 +16,10 @@ export function Full() {
   const mid = myMapsId(trip.mapUrl || "");
   return html`<div class="stack">
     ${mid
-      ? html`<iframe class="mymap" src=${`https://www.google.com/maps/d/embed?mid=${encodeURIComponent(mid)}&hl=zh-TW`} title="Google 我的地圖" loading="lazy"></iframe>
+      ? html`<div class="mymap">
+          <p class="mymap-wait muted small">地圖載入中…<br />一直空白的話，按下面的「在 Google 地圖開啟」</p>
+          <iframe src=${`https://www.google.com/maps/d/embed?mid=${encodeURIComponent(mid)}&hl=zh-TW`} title="Google 我的地圖"></iframe>
+        </div>
         <div class="row-start">
           <a class="btn primary" href=${`https://www.google.com/maps/d/viewer?mid=${encodeURIComponent(mid)}`} target="_blank" rel="noopener">在 Google 地圖開啟</a>
           <a class="btn ghost" href=${`https://www.google.com/maps/d/edit?mid=${encodeURIComponent(mid)}`} target="_blank" rel="noopener">編輯地圖</a>
@@ -39,7 +42,7 @@ export function Summary({ onOpen }) {
   return html`<div class="sum">
     ${online
       ? html`<button class="map-mini" onClick=${onOpen} aria-label="打開地圖">
-          <iframe src=${`https://www.google.com/maps/d/embed?mid=${encodeURIComponent(mid)}&hl=zh-TW`} title="地圖預覽" loading="lazy" tabindex="-1"></iframe>
+          <iframe src=${`https://www.google.com/maps/d/embed?mid=${encodeURIComponent(mid)}&hl=zh-TW`} title="地圖預覽" tabindex="-1"></iframe>
         </button>`
       : html`<div class="map-ph">🗺 沒網路時無法顯示地圖</div>`}
   </div>`;
