@@ -33,7 +33,7 @@ export async function copyTrip(src, { mode, title, startDate }) {
   for (const l of await store.getSub(src.id, "lists")) listMap[l.id] = await store.addSub(id, "lists", strip(l));
   if (mode !== "structure") {
     for (const it of await store.getSub(src.id, "listItems"))
-      if (listMap[it.listId]) await store.addSub(id, "listItems", { ...strip(it), listId: listMap[it.listId], done: false });
+      if (listMap[it.listId]) await store.addSub(id, "listItems", { ...strip(it), listId: listMap[it.listId], done: false, images: [] });
     for (const t of await store.getSub(src.id, "todos")) await store.addSub(id, "todos", { ...strip(t), done: false });
   }
   if (mode === "full") {
@@ -90,7 +90,7 @@ export async function importTrip(json) {
 
   const listMap = {};
   for (const l of subs.lists || []) listMap[l.id] = await store.addSub(id, "lists", strip(l));
-  for (const it of subs.listItems || []) if (listMap[it.listId]) await store.addSub(id, "listItems", { ...strip(it), listId: listMap[it.listId], ...(it.owner ? { owner: who(it.owner) } : {}) });
+  for (const it of subs.listItems || []) if (listMap[it.listId]) await store.addSub(id, "listItems", { ...strip(it), listId: listMap[it.listId], images: mapFiles(it.images), ...(it.owner ? { owner: who(it.owner) } : {}) });
   const cardMap = {};
   for (const c of subs.cards || []) cardMap[c.id] = await store.addSub(id, "cards", { ...strip(c), images: mapFiles(c.images) });
   for (const s of ["flights", "tickets"]) for (const x of subs[s] || []) await store.addSub(id, s, { ...strip(x), files: mapFiles(x.files) });

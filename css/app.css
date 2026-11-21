@@ -269,6 +269,10 @@ label.btn { position: relative; }
 .item-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
 .item-text { flex: 1; min-width: 0; border: 0; background: transparent; text-align: left; padding: 6px 0; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; color: var(--ink); align-items: baseline; }
 .item-text.static { cursor: default; }
+.item-main { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.item-note { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-list.xs .file-open.image img { width: 36px; height: 36px; }
+.file-list.xs .pdf-chip { display: none; }
 .item-who { font-size: 12px; color: var(--muted); text-align: right; }
 .item.done .item-text > span:first-child { color: var(--muted); text-decoration: line-through; }
 .item-edit { padding: 6px 0 12px 28px; display: flex; flex-direction: column; gap: 10px; }

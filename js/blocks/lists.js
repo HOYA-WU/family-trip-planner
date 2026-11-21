@@ -4,6 +4,7 @@ import { store } from "../store.js";
 import { local } from "../utils.js";
 import { useTrip, useSub, ConfirmButton } from "../ui.js";
 import { LIST_KINDS, personName, recipientLabel } from "../model.js";
+import { FilePick, FileList, UrlOrPaste } from "../files.js";
 
 function useLists() {
   const { trip } = useTrip();
@@ -68,6 +69,9 @@ function RecipientChips({ value = [], onChange }) {
 function ItemRow({ it, list, expanded, onExpand, hideWho = false }) {
   const { trip, family } = useTrip();
   const up = (patch) => store.updateSub(trip.id, "listItems", it.id, patch);
+  const imgs = it.images || [];
+  const addImgs = (ids) => up({ images: [...imgs, ...ids] });
+  const removeImg = (fid) => { store.deleteFile(trip.id, fid); up({ images: imgs.filter((x) => x !== fid) }); };
   const who = hideWho ? "" : list.kind === "gift"
     ? (it.recipients || []).map((rid) => family?.recipients?.find((r) => r.id === rid)).filter(Boolean).map((r) => recipientLabel(family, r)).join("、")
     : (list.kind === "packing" || list.kind === "shopping") ? personName(family, it.owner || "shared") : "";
@@ -75,9 +79,11 @@ function ItemRow({ it, list, expanded, onExpand, hideWho = false }) {
     <div class="item-row">
       <input type="checkbox" checked=${it.done} onChange=${(e) => up({ done: e.target.checked })} aria-label=${it.text} />
       <button class="item-text" onClick=${() => onExpand(expanded ? null : it.id)}>
-        <span>${it.text}${it.qty > 1 && html` <span class="muted">×${it.qty}</span>`}</span>
+        <span class="item-main"><span>${it.text}${it.qty > 1 && html` <span class="muted">×${it.qty}</span>`}</span>
+          ${it.note && !expanded && html`<span class="item-note">${it.note}</span>`}</span>
         ${who && html`<span class="item-who">${who}</span>`}
       </button>
+      ${!expanded && imgs.length > 0 && html`<${FileList} ids=${imgs.slice(0, 1)} size="xs" />`}
     </div>
     ${expanded && html`<div class="item-edit">
       <div class="row2">
@@ -88,8 +94,18 @@ function ItemRow({ it, list, expanded, onExpand, hideWho = false }) {
         <${RecipientChips} value=${it.recipients} onChange=${(v) => up({ recipients: v })} /></div>`}
       ${(list.kind === "packing" || list.kind === "shopping") && html`<label class="field"><span>屬於誰</span>
         <${OwnerSelect} id=${"it-owner-" + it.id} value=${it.owner} onChange=${(v) => up({ owner: v })} /></label>`}
+      <label class="field"><span>備註</span><textarea id=${"it-note-" + it.id} rows="2" value=${it.note || ""}
+        onChange=${(e) => up({ note: e.target.value })} placeholder="例如：哪裡買、口味、價格"></textarea></label>
+      <div class="field"><span>圖片（方便辨認）</span>
+        <${FileList} ids=${imgs} size="sm" onRemove=${removeImg} />
+        <div class="row-start">
+          <${FilePick} id=${"it-img-" + it.id} label="＋ 圖片" accept="image/*" onAdded=${addImgs} />
+          <${UrlOrPaste} id=${"it-url-" + it.id} onAdded=${addImgs}
+            onLink=${(url) => up({ note: (it.note ? it.note + "\n" : "") + url })} />
+        </div>
+      </div>
       <div class="row-end">
-        <${ConfirmButton} class="btn ghost small danger" label="刪除" onConfirm=${() => store.deleteSub(trip.id, "listItems", it.id)} />
+        <${ConfirmButton} class="btn ghost small danger" label="刪除" onConfirm=${() => { imgs.forEach((fid) => store.deleteFile(trip.id, fid)); store.deleteSub(trip.id, "listItems", it.id); }} />
         <button class="btn small" onClick=${() => onExpand(null)}>完成</button>
       </div>
     </div>`}
@@ -179,7 +195,7 @@ function ListView({ list, items }) {
       <div class="inline-form">
         <input id=${"list-title-" + list.id} value=${list.title} onChange=${(e) => store.updateSub(trip.id, "lists", list.id, { title: e.target.value })} aria-label="清單名稱" />
         <${ConfirmButton} class="btn ghost small danger" label="刪除清單" confirmLabel="連同項目一起刪除？"
-          onConfirm=${() => { mine.forEach((i) => store.deleteSub(trip.id, "listItems", i.id)); store.deleteSub(trip.id, "lists", list.id); }} />
+          onConfirm=${() => { mine.forEach((i) => { (i.images || []).forEach((fid) => store.deleteFile(trip.id, fid)); store.deleteSub(trip.id, "listItems", i.id); }); store.deleteSub(trip.id, "lists", list.id); }} />
       </div>
     </details>
   </div>`;

@@ -3,7 +3,7 @@ import { html, useState, useRef } from "../vendor/preact-htm.js";
 import { store } from "../store.js";
 import { shortDay } from "../utils.js";
 import { useTrip, useSub, Panel, ConfirmButton, Notes } from "../ui.js";
-import { FilePick, FileList, openFile } from "../files.js";
+import { FilePick, FileList, UrlOrPaste, openFile } from "../files.js";
 
 function useTickets() {
   const { trip } = useTrip();
@@ -17,6 +17,7 @@ function TicketEditor({ ticket, onClose }) {
   const isNew = !ticket.id;
   const [d, setD] = useState(() => ({ title: "", date: "", time: "", bookingNo: "", note: "", files: [], ...ticket }));
   const added = useRef([]);
+  const addFiles = (ids) => { added.current.push(...ids); setD((x) => ({ ...x, files: [...x.files, ...ids] })); };
   const bind = (k) => ({ value: d[k] || "", onInput: (e) => setD({ ...d, [k]: e.target.value }) });
   const cancel = () => {
     added.current.forEach((fid) => store.deleteFile(trip.id, fid));
@@ -42,8 +43,12 @@ function TicketEditor({ ticket, onClose }) {
       <button type="submit" class="btn primary">儲存</button>`}>
     <div class="field"><span>電子票券（PDF 或截圖）</span>
       <${FileList} ids=${d.files} onRemove=${(fid) => setD((x) => ({ ...x, files: x.files.filter((y) => y !== fid) }))} />
-      <div><${FilePick} id="ticket-files" purpose="doc" onAdded=${(ids) => { added.current.push(...ids); setD((x) => ({ ...x, files: [...x.files, ...ids] })); }} /></div>
-      <p class="hint">PDF 保留原檔（QR code 才掃得到），上限 5MB。</p>
+      <div class="row-start">
+        <${FilePick} id="ticket-files" purpose="doc" onAdded=${addFiles} />
+        <${UrlOrPaste} id="ticket-url" purpose="doc" onAdded=${addFiles}
+          onLink=${(url) => setD((x) => ({ ...x, note: (x.note ? x.note + "\n" : "") + url }))} />
+      </div>
+      <p class="hint">可以直接貼上拷貝的截圖（⌘V／Ctrl+V）。PDF 保留原檔（QR code 才掃得到），上限 5MB。</p>
     </div>
     <label class="field"><span>名稱</span><input id="ticket-title" ...${bind("title")} placeholder="例如：Puffing Billy 蒸汽火車" /></label>
     <div class="row2">
